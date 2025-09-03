@@ -1,0 +1,19 @@
+{
+  "name": "n8n-hypris-node",
+  "version": "1.0.0",
+  "description": "Hypris node for n8n",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests specified\""
+  },
+  "dependencies": {
+    "n8n-workflow": "^1.0.0",
+    "request": "^2.88.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/request": "^2.48.8",
+    "typescript": "^5.0.0"
+  }
+}
