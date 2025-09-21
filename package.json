@@ -1,19 +1,54 @@
 {
-  "name": "n8n-hypris-node",
-  "version": "1.0.0",
-  "description": "Hypris node for n8n",
-  "main": "dist/index.js",
+  "name": "n8n-nodes-hypris",
+  "version": "0.1.0",
+  "description": "n8n node for Hypris API integration",
+  "keywords": [
+    "n8n-community-node-package",
+    "hypris",
+    "api",
+    "workspace",
+    "database"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/dominikborsa/n8n-nodes-hypris",
+  "author": {
+    "name": "Dominik Borsa",
+    "email": "dominik.borsa@example.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dominikborsa/n8n-nodes-hypris.git"
+  },
+  "main": "index.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "test": "echo \"No tests specified\""
+    "test": "echo \"No tests specified\"",
+    "lint": "eslint --ext .ts src/",
+    "lintfix": "eslint --ext .ts src/ --fix",
+    "prepublishOnly": "npm run lint && npm run build"
   },
   "dependencies": {
-    "n8n-workflow": "^1.0.0",
-    "request": "^2.88.2"
+    "n8n-workflow": "^1.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
     "@types/request": "^2.48.8",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.0.0",
+    "eslint-plugin-n8n-nodes-base": "^1.0.0",
     "typescript": "^5.0.0"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/HyprisApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Hypris/Hypris.node.js"
+    ]
   }
 }

@@ -1,0 +1,34 @@
+# Source files
+src/
+*.ts
+!*.d.ts
+
+# Development files
+docs/
+*.md
+!README.md
+tsconfig.json
+.eslintrc.js
+
+# System files
+.DS_Store
+Icon
+*.log
+.env
+*.bak
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Dependencies and cache
+node_modules/
+.npm/
+.cache/
+
+# Git
+.git/
+.gitignore

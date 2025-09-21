@@ -1,2 +1,14 @@
 dist/
 node_modules/
+.DS_Store
+*.log
+.env
+*.bak
+Icon
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.npm/
+.cache/
