@@ -10,14 +10,14 @@
     "database"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/dominikborsa/n8n-nodes-hypris",
+  "homepage": "https://github.com/domelz92/n8n-nodes-hypris",
   "author": {
     "name": "Dominik Borsa",
     "email": "dominik.borsa@example.com"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dominikborsa/n8n-nodes-hypris.git"
+    "url": "git+https://github.com/domelz92/n8n-nodes-hypris.git"
   },
   "main": "index.js",
   "files": [

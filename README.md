@@ -59,4 +59,4 @@ To use this node, you need to create credentials in n8n:
 
 ## License
 
-[MIT](https://github.com/dominikborsa/n8n-nodes-hypris/blob/main/LICENSE)
+[MIT](https://github.com/domelz92/n8n-nodes-hypris/blob/main/LICENSE)
