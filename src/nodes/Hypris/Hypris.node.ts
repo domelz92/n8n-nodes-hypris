@@ -429,18 +429,18 @@ export class Hypris implements INodeType {
 									name: 'propertyId',
 									type: 'options',
 									default: '',
-									description: 'Choose property from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+									description: 'Choose property from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 									typeOptions: {
 										loadOptionsMethod: 'getItemProperties',
 										loadOptionsDependsOn: ['databaseId'],
 									},
 								},
 								{
-									displayName: 'Value',
+									displayName: 'Value Name or ID',
 									name: 'value',
 									type: 'options',
 									default: '',
-									description: 'The value for this field. For select fields, choose from dropdown. For other fields, type the value or use an expression.',
+									description: 'The value for this field. For select fields, choose from dropdown. For other fields, type the value or use an expression. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 									typeOptions: {
 										loadOptionsMethod: 'getPropertyValueOptions',
 										loadOptionsDependsOn: ['propertyId'],
@@ -540,18 +540,18 @@ export class Hypris implements INodeType {
 								name: 'propertyId',
 								type: 'options',
 								default: '',
-								description: 'Choose property from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+								description: 'Choose property from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 								typeOptions: {
 									loadOptionsMethod: 'getItemProperties',
 									loadOptionsDependsOn: ['databaseId'],
 								},
 							},
 							{
-								displayName: 'Value',
+								displayName: 'Value Name or ID',
 								name: 'value',
 								type: 'options',
 								default: '',
-								description: 'The value for this field. For select fields, choose from dropdown. For other fields, type the value or use an expression.',
+								description: 'The value for this field. For select fields, choose from dropdown. For other fields, type the value or use an expression. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 								typeOptions: {
 									loadOptionsMethod: 'getPropertyValueOptions',
 									loadOptionsDependsOn: ['propertyId'],
