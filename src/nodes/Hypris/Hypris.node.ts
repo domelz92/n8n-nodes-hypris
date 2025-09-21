@@ -10,6 +10,9 @@ import type {
 	INodeProperties,
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
+import { StrategyFactory } from './strategies';
+import { HyprisRequestBuilder, HyprisResponseParser } from './utils';
+import type { HyprisCredentials, OperationContext } from './types';
 
 export class Hypris implements INodeType {
 	description: INodeTypeDescription = {
@@ -47,12 +50,12 @@ export class Hypris implements INodeType {
 						value: 'database',
 					},
 					{
-						name: 'Property',
-						value: 'property',
+						name: 'Item',
+						value: 'item',
 					},
 					{
-						name: 'Record',
-						value: 'record',
+						name: 'Property',
+						value: 'property',
 					},
 					{
 						name: 'Resource Item',
@@ -67,7 +70,7 @@ export class Hypris implements INodeType {
 						value: 'workspace',
 					},
 				],
-				default: 'workspace',
+				default: 'database',
 			},
 			
 			// WORKSPACE OPERATIONS
@@ -83,10 +86,22 @@ export class Hypris implements INodeType {
 				},
 				options: [
 					{
+						name: 'Create',
+						value: 'create',
+						description: 'Create a workspace',
+						action: 'Create a workspace',
+					},
+					{
 						name: 'Get Many',
 						value: 'getAll',
 						description: 'Get many workspaces',
 						action: 'Get many workspaces',
+					},
+					{
+						name: 'Rename',
+						value: 'rename',
+						description: 'Rename a workspace',
+						action: 'Rename a workspace',
 					},
 				],
 				default: 'getAll',
@@ -120,7 +135,7 @@ export class Hypris implements INodeType {
 				default: 'getAll',
 			},
 			
-			// RECORD OPERATIONS
+			// ITEM OPERATIONS
 			{
 				displayName: 'Operation',
 				name: 'operation',
@@ -128,27 +143,33 @@ export class Hypris implements INodeType {
 				noDataExpression: true,
 				displayOptions: {
 					show: {
-						resource: ['record'],
+						resource: ['item'],
 					},
 				},
 				options: [
 					{
 						name: 'Create',
 						value: 'create',
-						description: 'Create a record',
-						action: 'Create a record',
+						description: 'Create an item',
+						action: 'Create an item',
 					},
 					{
 						name: 'Delete',
 						value: 'delete',
-						description: 'Delete a record',
-						action: 'Delete a record',
+						description: 'Delete an item',
+						action: 'Delete an item',
 					},
 					{
 						name: 'Get Many',
 						value: 'getAll',
-						description: 'Get many records',
-						action: 'Get many records',
+						description: 'Get many items',
+						action: 'Get many items',
+					},
+					{
+						name: 'Update',
+						value: 'update',
+						description: 'Update an item',
+						action: 'Update an item',
 					},
 				],
 				default: 'getAll',
@@ -261,10 +282,30 @@ export class Hypris implements INodeType {
 				required: true,
 				displayOptions: {
 					show: {
-						resource: ['database', 'record', 'view', 'property', 'resourceItem'],
+						resource: ['database', 'item', 'record', 'view', 'property', 'resourceItem'],
+					},
+					hide: {
+						resource: ['workspace'],
 					},
 				},
 				description: 'The workspace to operate on. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+				typeOptions: {
+					loadOptionsMethod: 'getWorkspaces',
+				},
+			},
+			{
+				displayName: 'Workspace Name or ID',
+				name: 'workspaceId',
+				type: 'options',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['workspace'],
+						operation: ['rename'],
+					},
+				},
+				description: 'The workspace to rename. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: {
 					loadOptionsMethod: 'getWorkspaces',
 				},
@@ -275,16 +316,48 @@ export class Hypris implements INodeType {
 				type: 'options',
 				default: '',
 				required: true,
-				displayOptions: {
-					show: {
-						resource: ['record', 'view', 'property'],
+					displayOptions: {
+						show: {
+							resource: ['item', 'view', 'property'],
+						},
 					},
-				},
 				description: 'The database to operate on. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 				typeOptions: {
 					loadOptionsMethod: 'getDatabases',
 					loadOptionsDependsOn: ['workspaceId'],
 				},
+			},
+			
+			// ===================================
+			// Workspace Parameters
+			// ===================================
+			{
+				displayName: 'Workspace Name',
+				name: 'workspaceName',
+				type: 'string',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['workspace'],
+						operation: ['create'],
+					},
+				},
+				description: 'Name for the new workspace',
+			},
+			{
+				displayName: 'New Workspace Name',
+				name: 'newWorkspaceName',
+				type: 'string',
+				default: '',
+				required: true,
+				displayOptions: {
+					show: {
+						resource: ['workspace'],
+						operation: ['rename'],
+					},
+				},
+				description: 'New name for the workspace',
 			},
 			
 			// ===================================
@@ -306,35 +379,188 @@ export class Hypris implements INodeType {
 			},
 			
 			// ===================================
-			// Record Parameters
+			// Item Parameters
 			// ===================================
 			{
-				displayName: 'Record Data',
-				name: 'recordData',
-				type: 'json',
-				default: '{\n  "state": "published",\n  "cellValues": {}\n}',
-				required: true,
-				displayOptions: {
-					show: {
-						resource: ['record'],
-						operation: ['create'],
+				displayName: 'Item State',
+				name: 'itemState',
+				type: 'options',
+				options: [
+					{
+						name: 'Published',
+						value: 'published',
 					},
+					{
+						name: 'Draft',
+						value: 'draft',
+					},
+				],
+				default: 'published',
+					displayOptions: {
+						show: {
+							resource: ['item'],
+							operation: ['create'],
+						},
+					},
+					description: 'The state of the new item',
 				},
-				description: 'The data for the new record',
+				{
+					displayName: 'Item Fields',
+					name: 'itemFields',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				placeholder: 'Add Field',
+				default: {},
+					displayOptions: {
+						show: {
+							resource: ['item'],
+							operation: ['create'],
+						},
+					},
+					options: [
+						{
+							name: 'field',
+							displayName: 'Field',
+							values: [
+								{
+									displayName: 'Property Name or ID',
+									name: 'propertyId',
+									type: 'options',
+									default: '',
+									description: 'Choose property from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+									typeOptions: {
+										loadOptionsMethod: 'getItemProperties',
+										loadOptionsDependsOn: ['databaseId'],
+									},
+								},
+								{
+									displayName: 'Value',
+									name: 'value',
+									type: 'options',
+									default: '',
+									description: 'The value for this field. For select fields, choose from dropdown. For other fields, type the value or use an expression.',
+									typeOptions: {
+										loadOptionsMethod: 'getPropertyValueOptions',
+										loadOptionsDependsOn: ['propertyId'],
+									},
+								},
+							],
+						},
+					],
+					description: 'Fields values for the new item',
 			},
 			{
-				displayName: 'Record IDs',
-				name: 'recordIds',
+				displayName: 'Include All Fields',
+				name: 'includeAllFields',
+				type: 'boolean',
+				default: true,
+					displayOptions: {
+						show: {
+							resource: ['item'],
+							operation: ['getAll'],
+						},
+					},
+					description: 'Whether to include all field values in the response',
+				},
+				{
+					displayName: 'Item IDs',
+					name: 'itemIds',
+				type: 'string',
+				default: '',
+				required: true,
+					displayOptions: {
+						show: {
+							resource: ['item'],
+							operation: ['delete'],
+						},
+					},
+					description: 'Comma-separated list of item IDs to delete',
+			},
+			{
+				displayName: 'Item ID',
+				name: 'itemId',
 				type: 'string',
 				default: '',
 				required: true,
 				displayOptions: {
 					show: {
-						resource: ['record'],
-						operation: ['delete'],
+						resource: ['item'],
+						operation: ['update'],
 					},
 				},
-				description: 'Comma-separated list of record IDs to delete',
+				description: 'ID of the item to update',
+			},
+			{
+				displayName: 'Item State',
+				name: 'itemState',
+				type: 'options',
+				options: [
+					{
+						name: 'Published',
+						value: 'published',
+					},
+					{
+						name: 'Draft',
+						value: 'draft',
+					},
+				],
+				default: 'published',
+				displayOptions: {
+					show: {
+						resource: ['item'],
+						operation: ['update'],
+					},
+				},
+				description: 'The state of the item',
+			},
+			{
+				displayName: 'Item Fields',
+				name: 'itemFields',
+				type: 'fixedCollection',
+				typeOptions: {
+					multipleValues: true,
+				},
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: {
+						resource: ['item'],
+						operation: ['update'],
+					},
+				},
+				options: [
+					{
+						name: 'field',
+						displayName: 'Field',
+						values: [
+							{
+								displayName: 'Property Name or ID',
+								name: 'propertyId',
+								type: 'options',
+								default: '',
+								description: 'Choose property from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+								typeOptions: {
+									loadOptionsMethod: 'getItemProperties',
+									loadOptionsDependsOn: ['databaseId'],
+								},
+							},
+							{
+								displayName: 'Value',
+								name: 'value',
+								type: 'options',
+								default: '',
+								description: 'The value for this field. For select fields, choose from dropdown. For other fields, type the value or use an expression.',
+								typeOptions: {
+									loadOptionsMethod: 'getPropertyValueOptions',
+									loadOptionsDependsOn: ['propertyId'],
+								},
+							},
+						],
+					},
+				],
+				description: 'Fields values to update',
 			},
 			
 			// ===================================
@@ -552,9 +778,15 @@ export class Hypris implements INodeType {
 			},
 			
 			async getDatabases(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				const workspaceId = this.getNodeParameter('workspaceId') as string;
-				
-				if (!workspaceId) {
+				let workspaceId: string;
+				try {
+					workspaceId = this.getNodeParameter('workspaceId') as string;
+					
+					if (!workspaceId) {
+						return [];
+					}
+				} catch (error) {
+					// If workspaceId parameter is not available yet, return empty array
 					return [];
 				}
 				
@@ -565,7 +797,7 @@ export class Hypris implements INodeType {
 
 				const options: IRequestOptions = {
 					method: 'GET',
-					uri: `${baseUrl}/workspace/${workspaceId}/resource-items`,
+					uri: `${baseUrl}/workspace/${workspaceId}/resource-items?includeDrafts=false`,
 					json: true,
 					auth: { user: username, pass: password },
 				};
@@ -642,7 +874,7 @@ export class Hypris implements INodeType {
 
 				const options: IRequestOptions = {
 					method: 'GET',
-					uri: `${baseUrl}/database/${databaseId}/properties`,
+					uri: `${baseUrl}/database/${databaseId}/properties?includeDrafts=false`,
 					json: true,
 					auth: { user: username, pass: password },
 				};
@@ -670,7 +902,7 @@ export class Hypris implements INodeType {
 
 				const options: IRequestOptions = {
 					method: 'GET',
-					uri: `${baseUrl}/workspace/${workspaceId}/resource-items`,
+					uri: `${baseUrl}/workspace/${workspaceId}/resource-items?includeDrafts=false`,
 					json: true,
 					auth: { user: username, pass: password },
 				};
@@ -683,6 +915,151 @@ export class Hypris implements INodeType {
 					value: item.id as string,
 				}));
 			},
+			
+				async getItemProperties(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const databaseId = this.getNodeParameter('databaseId') as string;
+				
+				if (!databaseId) {
+					return [];
+				}
+				
+				const credentials = await this.getCredentials('hyprisApi');
+				const baseUrl = credentials.baseUrl as string;
+				const username = credentials.username as string;
+				const password = credentials.password as string;
+
+				const options: IRequestOptions = {
+					method: 'GET',
+					uri: `${baseUrl}/database/${databaseId}/properties?includeDrafts=false`,
+					json: true,
+					auth: { user: username, pass: password },
+				};
+
+				try {
+					const response = await this.helpers.request(options);
+					const properties = response.data?.properties || [];
+					
+					// Przechowaj pełne dane properties w kontekście węzła
+					const context = this.getNode();
+					if (!context.parameters) {
+						context.parameters = {};
+					}
+					context.parameters._propertiesData = properties;
+					
+					return properties.map((prop: IDataObject) => {
+						let name = prop.title as string || prop.type as string || prop.id as string;
+						const type = prop.type as string;
+						
+						// Dodaj informację o typie pola
+						if (type) {
+							name += ` (${type})`;
+						}
+						
+						// Dla pól typu select, dodaj dostępne opcje
+						if (type === 'select' && prop.metadata) {
+							const metadata = prop.metadata as IDataObject;
+							const options = metadata.options as Array<{value: string, label: string}> || [];
+							if (options.length > 0) {
+								const optionsList = options.map(opt => opt.label || opt.value).join(', ');
+								name += ` [${optionsList}]`;
+							}
+						}
+						
+						return {
+							name,
+							value: prop.id as string,
+							description: `Type: ${type}`,
+						};
+					});
+					} catch (error) {
+						console.error('Error loading item properties:', error);
+					return [];
+				}
+			},
+			
+			async getPropertyOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const propertyId = this.getCurrentNodeParameter('propertyId') as string;
+				const context = this.getNode();
+				
+				if (!propertyId || !context.parameters?._propertiesData) {
+					return [];
+				}
+				
+				const propertiesData = context.parameters._propertiesData as IDataObject[];
+				const property = propertiesData.find(p => p.id === propertyId);
+				
+				if (!property || property.type !== 'select' || !property.metadata) {
+					return [];
+				}
+				
+				const metadata = property.metadata as IDataObject;
+				const options = metadata.options as Array<{value: string, label: string}> || [];
+				
+				return options.map(opt => ({
+					name: opt.label || opt.value,
+					value: opt.value,
+				}));
+			},
+			
+			async getPropertyValueOptions(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				// Pobierz aktualnie wybraną property
+				const propertyId = this.getCurrentNodeParameter('propertyId') as string;
+				const databaseId = this.getNodeParameter('databaseId') as string;
+				
+				if (!propertyId || !databaseId) {
+					return [];
+				}
+				
+				try {
+					// Pobierz informacje o properties
+					const credentials = await this.getCredentials('hyprisApi');
+					const baseUrl = credentials.baseUrl as string;
+					const username = credentials.username as string;
+					const password = credentials.password as string;
+					
+					const options: IRequestOptions = {
+						method: 'GET',
+						uri: `${baseUrl}/database/${databaseId}/properties?includeDrafts=false`,
+						json: true,
+						auth: { user: username, pass: password },
+					};
+					
+					const response = await this.helpers.request(options);
+					const properties = response.data?.properties || [];
+					
+					// Znajdź naszą property
+					const property = properties.find((p: IDataObject) => p.id === propertyId);
+					
+					if (!property) {
+						return [];
+					}
+					
+					// Dla pól select zwracamy opcje
+					if (property.type === 'select' && property.metadata) {
+						const metadata = property.metadata as IDataObject;
+						const selectOptions = metadata.options as Array<{value: string, label: string}> || [];
+						
+						return selectOptions.map(opt => ({
+							name: opt.label || opt.value,
+							value: opt.value,
+						}));
+					}
+					
+					// Dla innych typów pól zwracamy przykładowe wartości
+					if (property.type === 'checkbox') {
+						return [
+							{ name: 'True', value: 'true' },
+							{ name: 'False', value: 'false' },
+						];
+					}
+					
+					// Dla pozostałych typów zwracamy pustą listę - użytkownik może wpisać własną wartość
+					return [];
+				} catch (error) {
+					console.error('Error loading property value options:', error);
+					return [];
+				}
+			},
 		},
 	};
 
@@ -693,165 +1070,78 @@ export class Hypris implements INodeType {
 		const resource = this.getNodeParameter('resource', 0) as string;
 		const operation = this.getNodeParameter('operation', 0) as string;
 		
-		const credentials = await this.getCredentials('hyprisApi');
-		const baseUrl = credentials.baseUrl as string;
-		const username = credentials.username as string;
-		const password = credentials.password as string;
+		const credentials = await this.getCredentials('hyprisApi') as HyprisCredentials;
+		const requestBuilder = new HyprisRequestBuilder();
+		const responseParser = new HyprisResponseParser();
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				let endpoint = '';
-				const options: IRequestOptions = {
-					method: 'GET',
-					uri: '',
-					json: true,
-					auth: {
-						user: username,
-						pass: password,
-					},
+				// Pobierz wszystkie parametry dla bieżącego elementu
+				const parameters: IDataObject = {};
+				const node = this.getNode();
+				
+				// Dynamicznie zbierz wszystkie parametry
+				if (node.parameters) {
+					for (const [key, value] of Object.entries(node.parameters)) {
+						try {
+							parameters[key] = this.getNodeParameter(key, i, value);
+						} catch (e) {
+							// Parametr może nie być dostępny dla tej operacji
+						}
+					}
+				}
+
+
+				// Jeśli pobieramy itemy z włączoną opcją "Include All Fields", 
+				// najpierw pobierz wszystkie właściwości bazy danych
+				if (resource === 'item' && operation === 'getAll' && parameters.includeAllFields) {
+					const databaseId = parameters.databaseId as string;
+					if (databaseId) {
+						try {
+							const propertiesOptions: IRequestOptions = {
+								method: 'GET',
+								uri: `${credentials.baseUrl}/database/${databaseId}/properties?includeDrafts=false`,
+								json: true,
+								auth: {
+									user: credentials.username,
+									pass: credentials.password,
+								},
+							};
+							
+							const propertiesResponse = await this.helpers.request(propertiesOptions);
+							const properties = propertiesResponse.data?.properties || [];
+							
+							// Zbierz ID wszystkich właściwości
+							parameters._propertyIds = properties.map((prop: IDataObject) => prop.id as string);
+							} catch (error) {
+								console.error('Error loading properties for items:', error);
+							// Kontynuuj bez właściwości jeśli wystąpił błąd
+							parameters._propertyIds = [];
+						}
+					}
+				}
+
+				// Stwórz kontekst operacji
+				const context: OperationContext = {
+					credentials,
+					parameters,
+					itemIndex: i,
 				};
 
-				// WORKSPACE OPERATIONS
-				if (resource === 'workspace') {
-					if (operation === 'getAll') {
-						endpoint = '/me/workspaces';
-					}
-				}
-				
-				// DATABASE OPERATIONS
-				else if (resource === 'database') {
-					const workspaceId = this.getNodeParameter('workspaceId', i) as string;
-					
-					if (operation === 'getAll') {
-						endpoint = `/workspace/${workspaceId}/resource-items`;
-					} else if (operation === 'create') {
-						const databaseName = this.getNodeParameter('databaseName', i) as string;
-						endpoint = `/workspace/${workspaceId}/database`;
-						options.method = 'POST';
-						options.body = { title: databaseName };
-					}
-				}
-				
-				// RECORD OPERATIONS
-				else if (resource === 'record') {
-					const databaseId = this.getNodeParameter('databaseId', i) as string;
-					console.log('Database ID for records:', databaseId);
-					
-					if (operation === 'getAll') {
-						endpoint = `/database/${databaseId}/items/filter-groups?sortDirection=1`;
-						options.method = 'POST';
-						options.body = {
-							databasePropertyIds: [],
-							filterGroups: [{
-								filters: [],
-								offset: 0,
-								limit: 100
-							}]
-						};
-					} else if (operation === 'create') {
-						const recordData = this.getNodeParameter('recordData', i, {}) as IDataObject;
-						endpoint = `/database/${databaseId}/item`;
-						options.method = 'POST';
-						options.body = recordData;
-					} else if (operation === 'delete') {
-						const recordIds = this.getNodeParameter('recordIds', i) as string;
-						const recordIdArray = recordIds.split(',').map(id => id.trim());
-						endpoint = `/database/${databaseId}/items`;
-						options.method = 'DELETE';
-						options.body = { databaseItemIds: recordIdArray };
-					}
-				}
-				
-				// VIEW OPERATIONS
-				else if (resource === 'view') {
-					const databaseId = this.getNodeParameter('databaseId', i) as string;
-					
-					if (operation === 'getAll') {
-						endpoint = `/database/${databaseId}/views`;
-					} else if (operation === 'create') {
-						const viewName = this.getNodeParameter('viewName', i) as string;
-						const viewType = this.getNodeParameter('viewType', i) as string;
-						endpoint = `/database/${databaseId}/view`;
-						options.method = 'POST';
-						options.body = { name: viewName, type: viewType };
-					} else if (operation === 'update') {
-						const viewId = this.getNodeParameter('viewId', i) as string;
-						const newViewName = this.getNodeParameter('newViewName', i) as string;
-						endpoint = `/view/${viewId}`;
-						options.method = 'PATCH';
-						options.body = { name: newViewName };
-					}
-				}
-				
-				// PROPERTY OPERATIONS
-				else if (resource === 'property') {
-					const databaseId = this.getNodeParameter('databaseId', i) as string;
-					
-					if (operation === 'create') {
-						const propertyType = this.getNodeParameter('propertyType', i) as string;
-						const propertyTitle = this.getNodeParameter('propertyTitle', i) as string;
-						endpoint = `/database/${databaseId}/property`;
-						options.method = 'POST';
-						options.body = { type: propertyType, title: propertyTitle, state: 'published' };
-					} else if (operation === 'delete') {
-						const propertyId = this.getNodeParameter('propertyId', i) as string;
-						endpoint = `/property/${propertyId}`;
-						options.method = 'DELETE';
-					} else if (operation === 'getAll') {
-						endpoint = `/database/${databaseId}/properties?includeDrafts=true`;
-					}
-				}
-				
-				// RESOURCE ITEM OPERATIONS
-				else if (resource === 'resourceItem') {
-					const workspaceId = this.getNodeParameter('workspaceId', i) as string;
-					
-					if (operation === 'getAll') {
-						endpoint = `/workspace/${workspaceId}/resource-items`;
-					} else if (operation === 'rename') {
-						const resourceItemId = this.getNodeParameter('resourceItemId', i) as string;
-						const newName = this.getNodeParameter('newName', i) as string;
-						endpoint = `/resource-item/${resourceItemId}/name`;
-						options.method = 'PUT';
-						options.body = { name: newName };
-					}
-				}
+				// Pobierz odpowiednią strategię i wykonaj operację
+				const strategy = StrategyFactory.getStrategy(resource);
+				const result = strategy.executeOperation(operation, context);
 
-				options.uri = `${baseUrl}${endpoint}`;
-				console.log('Full URL:', options.uri);
-				console.log('Method:', options.method);
+				// Zbuduj żądanie
+				const options = requestBuilder.buildRequest(result, credentials);
+
+				// Wykonaj żądanie
 				const responseData = await this.helpers.request(options);
 				
-				// Handle Hypris API response structure
-				let dataToReturn: IDataObject | IDataObject[];
+				// Parsuj odpowiedź
+				const dataToReturn = responseParser.parseResponse(responseData, resource, operation);
 				
-				if (responseData.success && responseData.data) {
-					if (responseData.data.workspaces) {
-						dataToReturn = responseData.data.workspaces;
-					} else if (responseData.data.databases) {
-						dataToReturn = responseData.data.databases;
-					} else if (responseData.data.databaseViews) {
-						dataToReturn = responseData.data.databaseViews;
-					} else if (responseData.data.records) {
-						dataToReturn = responseData.data.records;
-					} else if (responseData.data.items) {
-						dataToReturn = responseData.data.items;
-					} else if (responseData.data.properties) {
-						dataToReturn = responseData.data.properties;
-					} else if (responseData.data.resourceItems && resource === 'database' && operation === 'getAll') {
-						// Filter only databases from resource items
-						const resourceItems = responseData.data.resourceItems as IDataObject[];
-						dataToReturn = resourceItems.filter((item: IDataObject) => {
-							const resourceEntity = item.resourceEntity as IDataObject;
-							return resourceEntity?.resourceType === 'database';
-						});
-					} else {
-						dataToReturn = responseData.data;
-					}
-				} else {
-					dataToReturn = responseData;
-				}
-				
+				// Dodaj dane do zwrócenia
 				if (Array.isArray(dataToReturn)) {
 					returnData.push(...dataToReturn.map(item => ({ json: item })));
 				} else {
