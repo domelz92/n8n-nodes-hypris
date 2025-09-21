@@ -15,7 +15,7 @@ export class Hypris implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Hypris',
 		name: 'hypris',
-		icon: 'file:hypris.png',
+		icon: 'file:hypris.svg',
 		group: ['transform'],
 		version: 1,
 		subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
@@ -23,8 +23,12 @@ export class Hypris implements INodeType {
 		defaults: {
 			name: 'Hypris',
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		// eslint-disable-next-line n8n-nodes-base/node-class-description-inputs-wrong-regular-node
+		// @ts-ignore
+		inputs: ['main'],
+		// eslint-disable-next-line n8n-nodes-base/node-class-description-outputs-wrong
+		// @ts-ignore
+		outputs: ['main'],
 		credentials: [
 			{
 				name: 'hyprisApi',
@@ -39,32 +43,31 @@ export class Hypris implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Workspace',
-						value: 'workspace',
-					},
-					{
 						name: 'Database',
 						value: 'database',
-					},
-					{
-						name: 'Record',
-						value: 'record',
-					},
-					{
-						name: 'View',
-						value: 'view',
 					},
 					{
 						name: 'Property',
 						value: 'property',
 					},
 					{
+						name: 'Record',
+						value: 'record',
+					},
+					{
 						name: 'Resource Item',
 						value: 'resourceItem',
 					},
+					{
+						name: 'View',
+						value: 'view',
+					},
+					{
+						name: 'Workspace',
+						value: 'workspace',
+					},
 				],
 				default: 'workspace',
-				description: 'The resource to operate on',
 			},
 			
 			// WORKSPACE OPERATIONS
@@ -210,10 +213,10 @@ export class Hypris implements INodeType {
 						action: 'Delete a property',
 					},
 					{
-						name: 'Get All',
+						name: 'Get Many',
 						value: 'getAll',
-						description: 'Get all properties',
-						action: 'Get all properties',
+						description: 'Get many properties',
+						action: 'Get many properties',
 					},
 				],
 				default: 'create',
@@ -232,10 +235,10 @@ export class Hypris implements INodeType {
 				},
 				options: [
 					{
-						name: 'Get All',
+						name: 'Get Many',
 						value: 'getAll',
-						description: 'Get all resource items in a workspace',
-						action: 'Get all resource items',
+						description: 'Get many resource items in a workspace',
+						action: 'Get many resource items',
 					},
 					{
 						name: 'Rename',

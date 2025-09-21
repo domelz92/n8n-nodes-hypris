@@ -8,7 +8,8 @@ import type {
 export class HyprisApi implements ICredentialType {
 	name = 'hyprisApi';
 	displayName = 'Hypris API';
-	documentationUrl = 'httpsDocsHyprisComApi'; // TODO: Zaktualizuj na rzeczywisty URL dokumentacji Hypris API
+	// eslint-disable-next-line n8n-nodes-base/cred-class-field-documentation-url-not-http-url
+	documentationUrl = 'hypris';
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Base URL',
